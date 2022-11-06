@@ -22,8 +22,12 @@ fn main() {
     let store = DatasetStorage::new("data/skus_parts".to_string(), Format::Parquet, Some(Compression::Snappy));
 
     let start = SystemTime::now();
+    let merge_table = table.head(&10_000);
+    println!("Head operation took: {} ms", start.elapsed().unwrap().as_millis());
+
+    let start = SystemTime::now();
     let partitions = vec!["sku_key".to_string()];
-    let dataset = table.merge(&table, &partitions);
+    let dataset = table.merge(&merge_table, &partitions);
     println!("Merge sku_key took: {} ms", start.elapsed().unwrap().as_millis());
 
     let start = SystemTime::now();

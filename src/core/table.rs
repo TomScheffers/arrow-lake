@@ -11,7 +11,7 @@ use arrow2::{
 
 use crate::core::hm::{hashmap_to_kv, hashmap_primitive_to_idxs_par, hashmap_from_vecs, hashmaps_merge};
 use crate::core::groupby::{groupby_many, groupby_many_test};
-use crate::core::chunks::{chunk_take_idxs};
+use crate::core::chunks::{chunk_take_idxs, chunk_head};
 use crate::core::dataset::{DatasetPart, Dataset, DatasetStorage};
 use crate::core::join::{join_arrays};
 use crate::core::merge::{merge_arrays};
@@ -34,6 +34,22 @@ impl Table {
 
     pub fn num_rows(&self) -> usize {
         self.chunks.iter().map(|c| c.len()).sum()
+    }
+
+    pub fn head(&self, n: &usize) -> Table {
+        let mut remaining = n.clone();
+        let mut new_chunks = Vec::new();
+        for chunk in &self.chunks {
+            if chunk.len() > remaining {
+                new_chunks.push(chunk_head(&chunk, &remaining));
+                remaining = 0
+            } else {
+                new_chunks.push(chunk.clone());
+                remaining -= &chunk.len();
+            }
+            if remaining == 0 {break};
+        }
+        Self { fields:self.fields.clone(), chunks:new_chunks }
     }
 
     pub fn position(&self, column: &String) -> usize {
