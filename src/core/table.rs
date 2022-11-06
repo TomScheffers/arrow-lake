@@ -14,6 +14,7 @@ use crate::core::groupby::{groupby_many, groupby_many_test};
 use crate::core::chunks::{chunk_take_idxs};
 use crate::core::dataset::{DatasetPart, Dataset, DatasetStorage};
 use crate::core::join::{join_arrays};
+use crate::core::merge::{merge_arrays};
 use crate::io::parquet::write::write_parquet;
 
 #[derive(Clone)]
@@ -68,6 +69,17 @@ impl Table {
 
         // Join to idxs
         join_arrays(&arrays1, &arrays2);
+    }
+
+    pub fn merge(&self, other: &Table, columns: &Vec<String>) {
+        // TODO: Push down filters to other table
+
+        // Gather arrays of both tables
+        let left = columns.iter().map(|col| self.table_column(col)).collect::<Vec<Box<dyn Array>>>();
+        let right = columns.iter().map(|col| other.table_column(col)).collect::<Vec<Box<dyn Array>>>();
+
+        // Join to idxs
+        let (left_idxs, right_idxs) = merge_arrays(&left, &right);
     }
 
     pub fn groupby_test(&self, columns: &Vec<String>) {

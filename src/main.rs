@@ -23,8 +23,8 @@ fn main() {
 
     let start = SystemTime::now();
     let partitions = vec!["sku_key".to_string()];
-    let dataset = table.join(&table, &partitions);
-    println!("Join single took: {} ms", start.elapsed().unwrap().as_millis());
+    let dataset = table.merge(&table, &partitions);
+    println!("Merge sku_key took: {} ms", start.elapsed().unwrap().as_millis());
 
     let start = SystemTime::now();
     let partitions = vec!["group_key".to_string()];

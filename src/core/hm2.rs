@@ -41,6 +41,8 @@ pub fn hashmap_from_vecs<V>(keys: Vec<&String>, values: Vec<V>) -> HashMap<Strin
     map
 }
 
+// PrimitiveArray to Multiple indexes (for groupby & join)
+
 pub fn hashmap_primitive_to_idxs<V: NativeType + Eq + Hash>(array: &PrimitiveArray<V>) -> HashMap<Option<V>, Vec<u32>> {
     let mut map = HashMap::new();
     for (i, a) in array.iter().enumerate() {
@@ -64,6 +66,7 @@ pub fn hashmaps_merge_vec<V: NativeType + Eq + Hash>(maps: Vec<HashMap<Option<V>
 
 // WE COULD PARALLELIZE BY MERGING TUPLES [h1, h2, h3, h4, h5] -> [[h1, h2], [[h3, h4], h5]]
 
+// THIS IS VERY SLOW (FIRST FIND KEYS THEN PARALLEL GET)
 pub fn hashmaps_merge_vec_test<V: NativeType + Eq + Hash>(maps: Vec<HashMap<Option<V>, Vec<u32>>>) -> HashMap<Option<V>, Vec<u32>> {
     let mut keys = HashSet::new();
     for map in &maps {
@@ -93,7 +96,7 @@ pub fn hashmap_primitive_to_idxs_par<V: NativeType + Eq + Hash>(array: &Primitiv
     println!("Workers: {}", workers);
     if array.len() > size {
         let start = SystemTime::now();
-        let size = array.len() / workers;
+        let size = array.len() / workers + 1;
         let maps = (0..workers)
             .into_par_iter()
             .map(|i| {
@@ -111,6 +114,30 @@ pub fn hashmap_primitive_to_idxs_par<V: NativeType + Eq + Hash>(array: &Primitiv
     }
 }
 
+// PrimitiveArray to Single index (for merge)
+
+pub fn hashmap_primitive_to_idx<V: NativeType + Eq + Hash>(array: &PrimitiveArray<V>) -> HashMap<Option<V>, u32> {
+    array.into_iter().enumerate().map(|(i, a)| (a.cloned(), i as u32)).collect::<HashMap<Option<V>, u32>>()
+}
+
+pub fn hashmap_primitive_to_idx_par<V: NativeType + Eq + Hash>(array: &PrimitiveArray<V>) -> Vec<HashMap<Option<V>, u32>> {
+    let size = 10_000;
+    let workers: usize = 24; //thread::available_parallelism().unwrap().get();
+    if array.len() > size {
+        let start = SystemTime::now();
+        let size = array.len() / workers + 1;
+        let maps = (0..workers)
+            .into_par_iter()
+            .map(|i| {
+                hashmap_primitive_to_idx(&array.slice(i * size, min(size, array.len() - i * size)))
+            })
+            .collect::<Vec<HashMap<Option<V>, u32>>>();
+        maps
+    } else {
+        vec![hashmap_primitive_to_idx(array)]
+    }
+}
+
 // Merges hashmaps into one
 // m1 = {m11: [1, 2, 3], m12: [4, 5, 6]}, m2 = {m21: [1, 3, 5], m22: [2, 4, 6]} -> mr = {mr1: [1, 3], mr2: [2], mr3: [5], mr4: [4, 6]}
 fn intersect<V>(vecs: Vec<Vec<V>>) -> Vec<V>  where V: Eq + Clone + Copy + Hash {
@@ -125,7 +152,6 @@ fn intersect<V>(vecs: Vec<Vec<V>>) -> Vec<V>  where V: Eq + Clone + Copy + Hash 
     }
     result
 }
-
 
 
 #[cfg(test)]
