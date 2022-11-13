@@ -1,11 +1,10 @@
 use std::path::Path;
-use std::fs::{self, DirEntry};
+use std::fs;
 use std::collections::HashMap;
 
 use serde_json;
 use serde::{Serialize, Deserialize};
 
-use arrow2::datatypes::Schema;
 use rayon::prelude::*;
 
 use crate::core::table::Table;
@@ -132,8 +131,8 @@ impl Dataset {
     }
 
     // Utils
-    pub fn is_partitioned(&self) -> bool {self.partitions.is_some()}
-    pub fn is_bucketized(&self) -> bool {self.buckets.is_some()}
+    // pub fn is_partitioned(&self) -> bool {self.partitions.is_some()}
+    // pub fn is_bucketized(&self) -> bool {self.buckets.is_some()}
 
     // TABLE INTERACTIONS
     // pub fn append(&self, table: &Table) {}
@@ -158,7 +157,7 @@ impl Dataset {
         match &self.storage {
             Some(storage) => {
                 // Create & clear directory
-                fs::remove_dir_all(&storage.root).expect("Remove files in root dir failed");
+                fs::remove_dir_all(&storage.root).ok(); //#.expect("Remove files in root dir failed");
                 fs::create_dir(&storage.root).expect("Create dir failed");
 
                 // Save manifest

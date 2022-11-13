@@ -1,12 +1,8 @@
-use std::collections::HashMap;
 use std::cmp::min;
-use rayon::prelude::*;
 
 use arrow2::{
-    datatypes::Field,
     array::{Array, PrimitiveArray},
     chunk::Chunk,
-    compute::concatenate::concatenate,
     compute::take::take,
 };
 

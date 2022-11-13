@@ -1,7 +1,4 @@
-use std::time::SystemTime;
-
-use std::collections::{HashSet, HashMap};
-use std::hash::Hash;
+use std::collections::HashMap;
 use std::cmp::Eq;
 
 use rayon::prelude::*;
@@ -9,16 +6,14 @@ use rayon::prelude::*;
 use arrow2::{
     types::NativeType,
     datatypes::*,
-    array::{Array, PrimitiveArray, DictionaryArray, DictionaryKey},
+    array::{Array, PrimitiveArray},
     compute::take::take,
-    compute::cast::{primitive_to_primitive, primitive_to_dictionary},
-    compute::arithmetics::basic::{add, add_scalar, mul, mul_scalar},
+    compute::cast::{primitive_to_primitive},
+    compute::arithmetics::basic::{add, add_scalar, mul_scalar},
     compute::aggregate::{min_primitive, max_primitive},
-    compute::hash::hash,
-    error::Error,
 };
 
-use crate::core::hm::{hashmap_to_kv, hashmap_primitive_to_idxs_par, hashmap_from_vecs, hashmaps_merge};
+use crate::core::hm::hashmap_primitive_to_idxs_par;
 
 // fn array_to_dictionary<V: NativeType + Hash + Eq>(array: &dyn Array) -> Result<DictionaryArray<i32>, Error> {
 //     let arr = array.as_any().downcast_ref::<PrimitiveArray<V>>().unwrap();
@@ -39,10 +34,6 @@ fn array_to_idxs(array: &dyn Array) -> Result<HashMap<String, Vec<u32>>, String>
         DataType::UInt64 => Ok(hashmap_primitive_to_idxs_par::<u64>(array.as_any().downcast_ref().expect("Downcast to primitive failed"))),         
         _ => Err(format!("{:?} is not implemented for hashing", array.data_type()))
     }    
-}
-
-pub fn hash_group_one(array: &dyn Array) -> HashMap<String, Vec<u32>> {
-    array_to_idxs(array).unwrap()
 }
 
 pub fn array_take_idxs(array: &dyn Array, idxs: &Vec<u32>) -> Box<dyn Array> {

@@ -1,7 +1,6 @@
 use std::time::SystemTime;
 
-use std::collections::{HashSet, HashMap};
-use std::hash::Hash;
+use std::collections::HashMap;
 use std::cmp::{min, Eq};
 
 use rayon::prelude::*;
@@ -9,15 +8,9 @@ use rayon::prelude::*;
 use arrow2::{
     types::NativeType,
     datatypes::*,
-    array::{Array, PrimitiveArray, DictionaryArray, DictionaryKey},
-    compute::take::take,
-    compute::cast::{primitive_to_primitive, primitive_to_dictionary},
-    compute::arithmetics::basic::{add, add_scalar, mul, mul_scalar},
+    array::{Array, PrimitiveArray},
+    compute::arithmetics::basic::{add, add_scalar, mul_scalar},
     compute::aggregate::{min_primitive, max_primitive},
-    compute::hash::hash,
-    compute::sort::{SortOptions, sort_to_indices},
-    compute::contains::contains,
-    error::Error,
 };
 
 use crate::core::hm2::{hashmap_primitive_to_idx_par};

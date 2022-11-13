@@ -3,13 +3,12 @@ use std::time::SystemTime;
 use std::collections::{HashMap, HashSet};
 use std::hash::Hash;
 use std::cmp::{min, Eq};
-use std::thread;
 
 use rayon::prelude::*;
 
 use arrow2::{
     types::NativeType,
-    array::{Array, PrimitiveArray},
+    array::PrimitiveArray,
 };
 
 pub fn hashmap_to_kv<'a, K, V>(map: &'a HashMap<K, V>) -> (Vec<&'a K>, Vec<&'a V>) {
@@ -135,34 +134,5 @@ pub fn hashmap_primitive_to_idx_par<V: NativeType + Eq + Hash>(array: &Primitive
         maps
     } else {
         vec![hashmap_primitive_to_idx(array)]
-    }
-}
-
-// Merges hashmaps into one
-// m1 = {m11: [1, 2, 3], m12: [4, 5, 6]}, m2 = {m21: [1, 3, 5], m22: [2, 4, 6]} -> mr = {mr1: [1, 3], mr2: [2], mr3: [5], mr4: [4, 6]}
-fn intersect<V>(vecs: Vec<Vec<V>>) -> Vec<V>  where V: Eq + Clone + Copy + Hash {
-    let mut result: Vec<V> = vecs[0].clone();
-
-    for vec in vecs {
-        let uniq: HashSet<V> = vec.into_iter().collect();
-        result = uniq
-            .intersection(&result.into_iter().collect())
-            .map(|i| *i)
-            .collect::<Vec<V>>();
-    }
-    result
-}
-
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_intersect() {
-        let v1 = vec![1, 2, 3, 4];
-        let v2 = vec![2, 4];
-        let v3 = intersect(vec![v1, v2]);
-        assert_eq!(v3, vec![2, 4])
     }
 }

@@ -3,13 +3,12 @@ use rayon::prelude::*;
 
 use arrow2::{
     datatypes::Field,
-    array::{Array, PrimitiveArray},
+    array::Array,
     chunk::Chunk,
     compute::concatenate::concatenate,
-    compute::take::take,
 };
 
-use crate::core::hm::{hashmap_to_kv, hashmap_primitive_to_idxs_par, hashmap_from_vecs, hashmaps_merge};
+use crate::core::hm::{hashmaps_merge};
 use crate::core::groupby::{groupby_many, groupby_many_test};
 use crate::core::chunks::{chunk_take_idxs, chunk_head};
 use crate::core::dataset::{DatasetPart, Dataset, DatasetStorage};
@@ -174,7 +173,6 @@ impl Table {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use crate::io::factory::create_random_table;
 
     #[test]

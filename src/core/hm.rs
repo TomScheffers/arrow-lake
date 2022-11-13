@@ -7,18 +7,8 @@ use rayon::prelude::*;
 
 use arrow2::{
     types::NativeType,
-    array::{Array, PrimitiveArray},
+    array::PrimitiveArray,
 };
-
-pub fn hashmap_to_kv<'a, K, V>(map: &'a HashMap<K, V>) -> (Vec<&'a K>, Vec<&'a V>) {
-    let mut keys = Vec::new();
-    let mut values = Vec::new();
-    for (key, value) in map {
-        keys.push(key);
-        values.push(value);
-    }
-    (keys, values)
-}
 
 pub fn hashmap_to_str<K>(map: &HashMap<Option<K>, Vec<u32>>) -> HashMap<String, Vec<u32>> where K: std::fmt::Display {
     let mut map2 = HashMap::new();
@@ -102,16 +92,6 @@ fn intersect<V>(vecs: Vec<Vec<V>>) -> Vec<V>  where V: Eq + Clone + Copy + Hash 
     }
     result
 }
-
-// fn combinations<V>(Vec<HashMap<String, Vec<V>>>>) -> HashMap<Vec<String>, Vec<Vec<V>>> {}
-
-// pub fn hashmaps_merge_intersect<V>(columns: Vec<String>, maps: Vec<HashMap<String, Vec<V>>>) -> HashMap<HashMap<String, String>, Vec<V>> {
-//     let mut map = HashMap::new();
-//     let combinations = columns
-//         .iter()
-//         .zip(maps)
-//         .map(|(c, m)| {
-//         })
 
 
 #[cfg(test)]
