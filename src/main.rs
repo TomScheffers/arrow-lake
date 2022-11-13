@@ -1,3 +1,5 @@
+#![allow(dead_code)]
+
 use std::time::SystemTime;
 
 mod core;
@@ -33,21 +35,13 @@ fn main() {
 
     let start = SystemTime::now();
     let partitions = vec!["group_key".to_string()];
-    let dataset = table.groupby(&partitions);
+    let _ = table.groupby(&partitions);
     println!("Groupby single took: {} ms", start.elapsed().unwrap().as_millis());
 
     let start = SystemTime::now();
-    let dataset = table.groupby_test(&partitions);
-    println!("Groupby single V2 took: {} ms", start.elapsed().unwrap().as_millis());
-
-    let start = SystemTime::now();
     let partitions = vec!["group_key".to_string(), "collection_key".to_string()];
-    let dataset = table.groupby(&partitions);
+    let _ = table.groupby(&partitions);
     println!("Groupby multiple took: {} ms", start.elapsed().unwrap().as_millis());
-
-    let start = SystemTime::now();
-    let dataset = table.groupby_test(&partitions);
-    println!("Groupby multiple V2 took: {} ms", start.elapsed().unwrap().as_millis());
 
     let start = SystemTime::now();
     let store = DatasetStorage::new("data/skus_parts".to_string(), Format::Parquet, Some(Compression::Snappy));
@@ -60,10 +54,10 @@ fn main() {
 
     let start = SystemTime::now();    
     let lazy: bool = true;
-    let dataset2 = Dataset::from_storage(&"data/skus_parts".to_string(), lazy);
+    let _ = Dataset::from_storage(&"data/skus_parts".to_string(), lazy);
     println!("Reading from storage (lazy): {} ms", start.elapsed().unwrap().as_millis());
 
     let start = SystemTime::now();    
-    let dataset2 = Dataset::from_storage(&"data/skus_parts".to_string(), !lazy);
+    let _ = Dataset::from_storage(&"data/skus_parts".to_string(), !lazy);
     println!("Reading from storage (!lazy): {} ms", start.elapsed().unwrap().as_millis());
 }

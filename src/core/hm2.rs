@@ -11,35 +11,6 @@ use arrow2::{
     array::PrimitiveArray,
 };
 
-pub fn hashmap_to_kv<'a, K, V>(map: &'a HashMap<K, V>) -> (Vec<&'a K>, Vec<&'a V>) {
-    let mut keys = Vec::new();
-    let mut values = Vec::new();
-    for (key, value) in map {
-        keys.push(key);
-        values.push(value);
-    }
-    (keys, values)
-}
-
-pub fn hashmap_to_str<K>(map: &HashMap<Option<K>, Vec<u32>>) -> HashMap<String, Vec<u32>> where K: std::fmt::Display {
-    let mut map2 = HashMap::new();
-    for (key, value) in map {
-        match key {
-            Some(key) => map2.insert(key.to_string(), value.clone()),
-            None => map2.insert("".to_string(), value.clone())
-        };
-    }
-    map2
-}
-
-pub fn hashmap_from_vecs<V>(keys: Vec<&String>, values: Vec<V>) -> HashMap<String, V> {
-    let mut map = HashMap::new();
-    for (key, value) in keys.iter().zip(values) {
-        map.insert((*key).clone(), value);
-    }
-    map
-}
-
 // PrimitiveArray to Multiple indexes (for groupby & join)
 
 pub fn hashmap_primitive_to_idxs<V: NativeType + Eq + Hash>(array: &PrimitiveArray<V>) -> HashMap<Option<V>, Vec<u32>> {
@@ -126,7 +97,6 @@ pub fn hashmap_primitive_to_idx_par<V: NativeType + Eq + Hash>(array: &Primitive
     let size = 10_000;
     let workers: usize = 24; //thread::available_parallelism().unwrap().get();
     if array.len() > size {
-        let start = SystemTime::now();
         let size = array.len() / workers + 1;
         let maps = (0..workers)
             .into_par_iter()

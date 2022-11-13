@@ -24,7 +24,7 @@ fn create_chunk(size: usize, offset: usize) -> Chunk<Box<dyn Array>> {
         c1.clone().boxed(),
         c2.clone().boxed(),
         c3.boxed(),
-        c2.boxed(),
+        c4.boxed(),
     ])
 }
 

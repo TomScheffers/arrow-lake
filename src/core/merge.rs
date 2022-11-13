@@ -1,5 +1,3 @@
-use std::time::SystemTime;
-
 use std::collections::HashMap;
 use std::cmp::{min, Eq};
 
@@ -86,8 +84,8 @@ pub fn merge_arrays(left: &Vec<Box<dyn Array>>, right: &Vec<Box<dyn Array>>) -> 
             left_array.slice(i * size, min(size, left_array.len() - i * size))
                 .iter()
                 .enumerate()
-                .filter(|(i, lv)| right_map.get(&lv.cloned()).is_none())
-                .map(|(i, lv)| i as u32)
+                .filter(|(_i, lv)| right_map.get(&lv.cloned()).is_none())
+                .map(|(i, _lv)| i as u32)
                 .collect::<Vec<u32>>()
         })
         .collect::<Vec<Vec<u32>>>();
@@ -102,7 +100,6 @@ pub fn delete_arrays(left: &Vec<Box<dyn Array>>, right: &Vec<Box<dyn Array>>) ->
     let (left_array, right_map) = prepare_arrays(left, right);
 
     // Loop over left side: keep boolean mask of left side, set to true when value not in right_map
-    let start = SystemTime::now();
     let workers = 24;
     let size = left_array.len() / workers + 1;
     let left_idxs = (0..workers)
@@ -111,8 +108,8 @@ pub fn delete_arrays(left: &Vec<Box<dyn Array>>, right: &Vec<Box<dyn Array>>) ->
             left_array.slice(i * size, min(size, left_array.len() - i * size))
                 .iter()
                 .enumerate()
-                .filter(|(i, lv)| right_map.get(&lv.cloned()).is_none())
-                .map(|(i, lv)| i as u32)
+                .filter(|(_i, lv)| right_map.get(&lv.cloned()).is_none())
+                .map(|(i, _lv)| i as u32)
                 .collect::<Vec<u32>>()
         })
         .collect::<Vec<Vec<u32>>>();

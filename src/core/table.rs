@@ -1,19 +1,18 @@
 use std::collections::HashMap;
 use rayon::prelude::*;
-use std::time::SystemTime;
 
 use arrow2::{
     datatypes::Field,
-    array::Array,
+    array::{Array, PrimitiveArray},
     chunk::Chunk,
     compute::concatenate::concatenate,
+    compute::take::take,
 };
 
 use crate::core::hm::{hashmaps_merge};
-use crate::core::groupby::{groupby_many, groupby_many_test};
+use crate::core::groupby::{groupby_many};
 use crate::core::chunks::{chunk_take, chunk_head};
 use crate::core::dataset::{DatasetPart, Dataset, DatasetStorage};
-use crate::core::join::{join_arrays};
 use crate::core::merge::{merge_arrays, delete_arrays};
 use crate::io::parquet::write::write_parquet;
 
@@ -124,32 +123,25 @@ impl Table {
         // Index left idxs
         self.take(left_idxs)
     }
-    
-    pub fn join(&self, other: &Table, columns: &Vec<String>) {
-        // Gather arrays of both tables
-        let arrays1 = columns.iter().map(|col| self.column(col)).collect::<Vec<Box<dyn Array>>>();
-        let arrays2 = columns.iter().map(|col| other.column(col)).collect::<Vec<Box<dyn Array>>>();
 
-        // Join to idxs
-        join_arrays(&arrays1, &arrays2);
-    }
+    pub fn filter(&self) {}
 
-    pub fn groupby_test(&self, columns: &Vec<String>) {
-        let maps = self.chunks
-            .par_iter()
-            .map(|chunk| {
-                let arrays = columns
-                    .iter()
-                    .map(|column| {
-                        let idx = self.position(&column);
-                        chunk.columns().get(idx).unwrap().as_ref()                        
-                    })
-                    .collect::<Vec<&dyn Array>>();
+    // pub fn groupby_test(&self, columns: &Vec<String>) {
+    //     let maps = self.chunks
+    //         .par_iter()
+    //         .map(|chunk| {
+    //             let arrays = columns
+    //                 .iter()
+    //                 .map(|column| {
+    //                     let idx = self.position(&column);
+    //                     chunk.columns().get(idx).unwrap().as_ref()                        
+    //                 })
+    //                 .collect::<Vec<&dyn Array>>();
                 
-                let map = groupby_many_test(arrays);
-            })
-            .collect::<Vec<()>>();
-    }
+    //             let map = groupby_many_test(arrays);
+    //         })
+    //         .collect::<Vec<()>>();
+    // }
 
     pub fn groupby(&self, columns: &Vec<String>) -> Vec<DatasetPart> {
         // 1. For loop over row_groups / chunks

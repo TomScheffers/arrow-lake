@@ -1,4 +1,4 @@
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 use std::hash::Hash;
 use std::cmp::{min, Eq};
 use std::thread;
@@ -19,14 +19,6 @@ pub fn hashmap_to_str<K>(map: &HashMap<Option<K>, Vec<u32>>) -> HashMap<String, 
         };
     }
     map2
-}
-
-pub fn hashmap_from_vecs<V>(keys: Vec<&String>, values: Vec<V>) -> HashMap<String, V> {
-    let mut map = HashMap::new();
-    for (key, value) in keys.iter().zip(values) {
-        map.insert((*key).clone(), value);
-    }
-    map
 }
 
 pub fn hashmap_primitive_to_idxs<V: NativeType + Eq + Hash>(array: &PrimitiveArray<V>) -> HashMap<String, Vec<u32>> {
@@ -76,33 +68,4 @@ pub fn hashmaps_merge_vec<V>(maps: Vec<HashMap<String, Vec<V>>>) -> HashMap<Stri
         }
     }
     map
-}
-
-// Merges hashmaps into one
-// m1 = {m11: [1, 2, 3], m12: [4, 5, 6]}, m2 = {m21: [1, 3, 5], m22: [2, 4, 6]} -> mr = {mr1: [1, 3], mr2: [2], mr3: [5], mr4: [4, 6]}
-fn intersect<V>(vecs: Vec<Vec<V>>) -> Vec<V>  where V: Eq + Clone + Copy + Hash {
-    let mut result: Vec<V> = vecs[0].clone();
-
-    for vec in vecs {
-        let uniq: HashSet<V> = vec.into_iter().collect();
-        result = uniq
-            .intersection(&result.into_iter().collect())
-            .map(|i| *i)
-            .collect::<Vec<V>>();
-    }
-    result
-}
-
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_intersect() {
-        let v1 = vec![1, 2, 3, 4];
-        let v2 = vec![2, 4];
-        let v3 = intersect(vec![v1, v2]);
-        assert_eq!(v3, vec![2, 4])
-    }
 }
