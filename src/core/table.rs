@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 use rayon::prelude::*;
+use std::time::SystemTime;
 
 use arrow2::{
     datatypes::Field,
@@ -11,10 +12,10 @@ use arrow2::{
 
 use crate::core::hm::{hashmap_to_kv, hashmap_primitive_to_idxs_par, hashmap_from_vecs, hashmaps_merge};
 use crate::core::groupby::{groupby_many, groupby_many_test};
-use crate::core::chunks::{chunk_take_idxs, chunk_head};
+use crate::core::chunks::{chunk_take, chunk_head};
 use crate::core::dataset::{DatasetPart, Dataset, DatasetStorage};
 use crate::core::join::{join_arrays};
-use crate::core::merge::{merge_arrays};
+use crate::core::merge::{merge_arrays, delete_arrays};
 use crate::io::parquet::write::write_parquet;
 
 #[derive(Clone)]
@@ -35,6 +36,7 @@ impl Table {
     pub fn num_rows(&self) -> usize {
         self.chunks.iter().map(|c| c.len()).sum()
     }
+    pub fn len(&self) -> usize {self.num_rows()}
 
     pub fn head(&self, n: &usize) -> Table {
         let mut remaining = n.clone();
@@ -52,50 +54,85 @@ impl Table {
         Self { fields:self.fields.clone(), chunks:new_chunks }
     }
 
+    pub fn table_eq(&self, other: &Table) {
+        assert_eq!(self.fields, other.fields);
+    }
+
     pub fn position(&self, column: &String) -> usize {
         self.columns().iter().position(|&r| r == column).unwrap()
     }
  
-    pub fn table_column(&self, column: &String) -> Box<dyn Array> {
+    pub fn column(&self, column: &String) -> Box<dyn Array> {
         let idx = self.position(column);
         let arrays = self.chunks
             .iter()
             .map(|chunk| {
                 (*chunk.columns().get(idx).unwrap()).as_ref()
             })
-            .collect::<Vec<_>>();
+            .collect::<Vec<&dyn Array>>();
         concatenate(&arrays[..]).unwrap()
+    }
+
+    pub fn take(&self, idxs: Vec<u32>) -> Self {
+        let idx = PrimitiveArray::from(idxs.iter().map(|x| Some(*x)).collect::<Vec<Option<u32>>>());
+        let arrays = (0..self.fields.len())
+            .into_par_iter()
+            .map(|i| {
+                if self.chunks.len() == 1 {
+                    take(self.chunks[0].columns()[i].as_ref(), &idx).unwrap()
+                } else {
+                    let arrs = self.chunks
+                        .iter()
+                        .map(|chunk| (*chunk.columns().get(i).unwrap()).as_ref())
+                        .collect::<Vec<&dyn Array>>();
+                    take(concatenate(&arrs).unwrap().as_ref(), &idx).unwrap()
+                }
+            })
+            .collect::<Vec<Box<dyn Array>>>();
+        Self { fields: self.fields.clone(), chunks: vec![Chunk::new(arrays)] }
     }
     
     pub fn append(&mut self, other: &mut Table) {
-        assert_eq!(self.fields, other.fields);
+        self.table_eq(other);
         self.chunks.append(&mut other.chunks);
     }
 
-    pub fn upsert(&mut self, other: &mut Table) {}
-
-    pub fn delete(&mut self, other: &mut Table) {}
-    
-    pub fn join(&self, other: &Table, columns: &Vec<String>) {
-        // TODO: Push down filters to other table
+    pub fn upsert(&self, other: &Table, columns: &Vec<String>) -> Self {
+        self.table_eq(other);
 
         // Gather arrays of both tables
-        let arrays1 = columns.iter().map(|col| self.table_column(col)).collect::<Vec<Box<dyn Array>>>();
-        let arrays2 = columns.iter().map(|col| other.table_column(col)).collect::<Vec<Box<dyn Array>>>();
+        let left = columns.iter().map(|col| self.column(col)).collect::<Vec<Box<dyn Array>>>();
+        let right = columns.iter().map(|col| other.column(col)).collect::<Vec<Box<dyn Array>>>();
+
+        // Merge to idxs
+        let (left_idxs, right_idxs) = merge_arrays(&left, &right);
+
+        // Index left & right + concatenate tables
+        let mut lt = self.take(left_idxs);
+        let mut rt = other.take(right_idxs);
+        lt.append(&mut rt);
+        lt
+    }
+
+    pub fn delete(&self, other: &Table, columns: &Vec<String>) -> Self {
+        self.table_eq(other);
+        let left = columns.iter().map(|col| self.column(col)).collect::<Vec<Box<dyn Array>>>();
+        let right = columns.iter().map(|col| other.column(col)).collect::<Vec<Box<dyn Array>>>();
+
+        // Merge to idxs
+        let left_idxs = delete_arrays(&left, &right);
+
+        // Index left idxs
+        self.take(left_idxs)
+    }
+    
+    pub fn join(&self, other: &Table, columns: &Vec<String>) {
+        // Gather arrays of both tables
+        let arrays1 = columns.iter().map(|col| self.column(col)).collect::<Vec<Box<dyn Array>>>();
+        let arrays2 = columns.iter().map(|col| other.column(col)).collect::<Vec<Box<dyn Array>>>();
 
         // Join to idxs
         join_arrays(&arrays1, &arrays2);
-    }
-
-    pub fn merge(&self, other: &Table, columns: &Vec<String>) {
-        // TODO: Push down filters to other table
-
-        // Gather arrays of both tables
-        let left = columns.iter().map(|col| self.table_column(col)).collect::<Vec<Box<dyn Array>>>();
-        let right = columns.iter().map(|col| other.table_column(col)).collect::<Vec<Box<dyn Array>>>();
-
-        // Join to idxs
-        let (left_idxs, right_idxs) = merge_arrays(&left, &right);
     }
 
     pub fn groupby_test(&self, columns: &Vec<String>) {
@@ -136,7 +173,7 @@ impl Table {
                 map
                     .into_par_iter()
                     .map(|(k, v)| {
-                        (k, chunk_take_idxs(&chunk, &v))
+                        (k, chunk_take(&chunk, &v))
                     })
                     .collect::<HashMap<Vec<String>, Chunk<Box<dyn Array>>>>()
 

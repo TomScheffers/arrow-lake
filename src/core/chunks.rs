@@ -10,14 +10,25 @@ use arrow2::{
     compute::take::take,
 };
 
-pub fn chunk_take_idxs(chunk: &Chunk<Box<dyn Array>>, idxs: &Vec<u32>) -> Chunk<Box<dyn Array>> {
-    let mut arrays_new = Vec::new();
+pub fn chunk_take(chunk: &Chunk<Box<dyn Array>>, idxs: &Vec<u32>) -> Chunk<Box<dyn Array>> {
     let idxs = PrimitiveArray::from(idxs.iter().map(|x| Some(*x)).collect::<Vec<Option<u32>>>());
-    for array in chunk.columns() {
-        arrays_new.push(take(array.as_ref(), &idxs).unwrap());
-    }
+    let arrays_new = chunk
+        .columns()
+        .iter()
+        .map(|array| take(array.as_ref(), &idxs).unwrap())
+        .collect::<Vec<Box<dyn Array>>>();
     Chunk::new(arrays_new)
 }
+
+// pub fn chunks_take(chunk: Vec<&Chunk<Box<dyn Array>>>, idxs: &Vec<u32>) -> Chunk<Box<dyn Array>> {
+//     let idxs = PrimitiveArray::from(idxs.iter().map(|x| Some(*x)).collect::<Vec<Option<u32>>>());
+//     let arrays_new = chunk
+//         .columns()
+//         .iter()
+//         .map(|array| take(array.as_ref(), &idxs).unwrap())
+//         .collect::<Vec<Box<dyn Array>>>();
+//     Chunk::new(arrays_new)
+// }
 
 pub fn chunk_head(chunk: &Chunk<Box<dyn Array>>, n: &usize) -> Chunk<Box<dyn Array>> {
     let mut arrays_new = Vec::new();

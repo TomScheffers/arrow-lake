@@ -22,7 +22,7 @@ use arrow2::{
 
 use crate::core::hm2::{hashmap_primitive_to_idx_par};
 
-fn array_to_idx(array: &dyn Array) -> Result<Vec<HashMap<Option<i64>, u32>>, String> {
+fn array_to_idx(array: &dyn Array) -> Result<HashMap<Option<i64>, u32>, String> {
     match array.data_type() {
         DataType::Int64  => Ok(hashmap_primitive_to_idx_par::<i64>(array.as_any().downcast_ref().expect("Downcast to primitive failed"))),         
         _ => Err(format!("{:?} is not implemented for hashing", array.data_type()))
@@ -59,32 +59,33 @@ fn arrays_to_hash(arrays: &Vec<Box<dyn Array>>) -> PrimitiveArray<i64> {
 
 // Return left idxs and right idxs which forms a unique table
 fn arrays_to_array(arrays: &Vec<Box<dyn Array>>) -> &PrimitiveArray<i64> {
-    array_downcast_primitive::<i64>(arrays[0].as_ref())
-
-    // if arrays.len() == 1 {
-    //     array_downcast_primitive::<i64>(arrays[0])
-    // } else {
-    //     arrays_to_hash(arrays)
-    // }
+    if arrays.len() == 1 {
+        array_downcast_primitive::<i64>(arrays[0].as_ref())
+    } else {
+        array_downcast_primitive::<i64>(arrays[0].as_ref())
+        //TODO: arrays_to_hash(arrays)
+    }
 }
 
-pub fn arrays_to_idx(arrays: &Vec<Box<dyn Array>>) -> Result<Vec<HashMap<Option<i64>, u32>>, String> {
+pub fn arrays_to_idx(arrays: &Vec<Box<dyn Array>>) -> Result<HashMap<Option<i64>, u32>, String> {
     let array = arrays_to_array(arrays);
     array_to_idx(array)
 }
 
-pub fn merge_arrays(left: &Vec<Box<dyn Array>>, right: &Vec<Box<dyn Array>>) -> (Vec<u32>, Vec<u32>) {
-    // Build probe on right side
-    let start = SystemTime::now();
-    let right_maps = arrays_to_idx(right).unwrap();
-    println!("Merging Right map phase: {} ms", start.elapsed().unwrap().as_millis());
-
-    // Prepare probe array
+fn prepare_arrays<'a>(left: &'a Vec<Box<dyn Array>>, right: &Vec<Box<dyn Array>>) -> (&'a PrimitiveArray<i64>, HashMap<Option<i64>, u32>) {
+    // Build map on right side
+    let right_map = arrays_to_idx(right).unwrap();
+    // Prepare probe on left side
     let left_array = arrays_to_array(left);
+    (left_array, right_map)
+}
+
+pub fn merge_arrays(left: &Vec<Box<dyn Array>>, right: &Vec<Box<dyn Array>>) -> (Vec<u32>, Vec<u32>) {
+    // Prepare arrays
+    let (left_array, right_map) = prepare_arrays(left, right);
 
     // Loop over left side: keep boolean mask of left side, set to true when value not in right_map
-    let start = SystemTime::now();
-    let workers = 100;
+    let workers = 24;
     let size = left_array.len() / workers + 1;
     let left_idxs = (0..workers)
         .into_par_iter()
@@ -92,25 +93,35 @@ pub fn merge_arrays(left: &Vec<Box<dyn Array>>, right: &Vec<Box<dyn Array>>) -> 
             left_array.slice(i * size, min(size, left_array.len() - i * size))
                 .iter()
                 .enumerate()
-                .filter(|(i, lv)| {
-                    // Check if value is in any of the right_maps
-                    for right_map in &right_maps {
-                        if right_map.get(&lv.cloned()).is_some() {
-                            return false
-                        }
-                    }
-                    true
-                })
+                .filter(|(i, lv)| right_map.get(&lv.cloned()).is_none())
                 .map(|(i, lv)| i as u32)
                 .collect::<Vec<u32>>()
         })
         .collect::<Vec<Vec<u32>>>();
     let left_idxs = left_idxs.into_iter().flat_map(|m| m.into_iter()).collect::<Vec<u32>>();
-    println!("Merging Left mask phase: {} ms", start.elapsed().unwrap().as_millis());
 
-    let start = SystemTime::now();
-    let right_idxs = right_maps.into_iter().flat_map(|m| m.into_values()).collect::<Vec<u32>>();
-    println!("Merging Right idx gather: {} ms", start.elapsed().unwrap().as_millis());
-
+    let right_idxs = right_map.into_values().collect::<Vec<u32>>();
     (left_idxs, right_idxs)
 } 
+
+pub fn delete_arrays(left: &Vec<Box<dyn Array>>, right: &Vec<Box<dyn Array>>) -> Vec<u32> {
+    // Prepare arrays
+    let (left_array, right_map) = prepare_arrays(left, right);
+
+    // Loop over left side: keep boolean mask of left side, set to true when value not in right_map
+    let start = SystemTime::now();
+    let workers = 24;
+    let size = left_array.len() / workers + 1;
+    let left_idxs = (0..workers)
+        .into_par_iter()
+        .map(|i| {
+            left_array.slice(i * size, min(size, left_array.len() - i * size))
+                .iter()
+                .enumerate()
+                .filter(|(i, lv)| right_map.get(&lv.cloned()).is_none())
+                .map(|(i, lv)| i as u32)
+                .collect::<Vec<u32>>()
+        })
+        .collect::<Vec<Vec<u32>>>();
+    left_idxs.into_iter().flat_map(|m| m.into_iter()).collect::<Vec<u32>>()
+}
