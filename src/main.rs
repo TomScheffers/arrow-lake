@@ -8,9 +8,10 @@ use crate::core::dataset::{Dataset, Format, Compression, DatasetStorage};
 
 // TODO LIST
 // 1. Table: append, upsert, delete 
-// 2. Groupby: multiple columns + buckets
-// 3. Dataset naming / bucketing conventions
-// 4. Delete records in folder when writing partitions
+// 2. Filter ops
+// 3. Large benchmark (millions of records)
+// 4. Dataset: bucketing: naming / conventions
+// 5. Printing a table head
 
 fn main() {
     let start = SystemTime::now();
@@ -19,16 +20,16 @@ fn main() {
     let _rows = table.num_rows();
     println!("Reading table took: {} ms", start.elapsed().unwrap().as_millis());
 
-    let store = DatasetStorage::new("data/skus_parts".to_string(), Format::Parquet, Some(Compression::Snappy));
-
     let start = SystemTime::now();
-    let merge_table = table.head(&10_000);
-    println!("Head operation took: {} ms", start.elapsed().unwrap().as_millis());
-
-    let start = SystemTime::now();
+    let upsert = table.head(&10_000);
     let partitions = vec!["sku_key".to_string()];
-    let dataset = table.merge(&merge_table, &partitions);
-    println!("Merge sku_key took: {} ms", start.elapsed().unwrap().as_millis());
+    let table_up = table.upsert(&upsert, &partitions);
+    println!("Upsert on sku_key took: {} ms. Rows: {}", start.elapsed().unwrap().as_millis(), table_up.len());
+
+    let start = SystemTime::now();
+    let delete = table.head(&1_000);
+    let table_del = table.delete(&delete, &partitions);
+    println!("Delete on sku_key took: {} ms. Rows: {}", start.elapsed().unwrap().as_millis(), table_del.len());
 
     let start = SystemTime::now();
     let partitions = vec!["group_key".to_string()];
@@ -40,10 +41,6 @@ fn main() {
     println!("Groupby single V2 took: {} ms", start.elapsed().unwrap().as_millis());
 
     let start = SystemTime::now();
-    let dataset = table.groupby(&partitions);
-    println!("Groupby single took: {} ms", start.elapsed().unwrap().as_millis());
-
-    let start = SystemTime::now();
     let partitions = vec!["group_key".to_string(), "collection_key".to_string()];
     let dataset = table.groupby(&partitions);
     println!("Groupby multiple took: {} ms", start.elapsed().unwrap().as_millis());
@@ -53,6 +50,7 @@ fn main() {
     println!("Groupby multiple V2 took: {} ms", start.elapsed().unwrap().as_millis());
 
     let start = SystemTime::now();
+    let store = DatasetStorage::new("data/skus_parts".to_string(), Format::Parquet, Some(Compression::Snappy));
     let dataset = table.to_dataset(Some(partitions), None, Some(store));
     println!("To dataset: {} ms", start.elapsed().unwrap().as_millis());
     

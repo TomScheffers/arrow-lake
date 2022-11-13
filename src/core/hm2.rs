@@ -52,7 +52,7 @@ pub fn hashmap_primitive_to_idxs<V: NativeType + Eq + Hash>(array: &PrimitiveArr
 }
 
 // THIS IS SLOW FOR LARGE HASHMAPS BECAUSE WE CANNOT 
-pub fn hashmaps_merge_vec<V: NativeType + Eq + Hash>(maps: Vec<HashMap<Option<V>, Vec<u32>>>) -> HashMap<Option<V>, Vec<u32>> {
+pub fn hashmaps_merge_idxs<V: NativeType + Eq + Hash>(maps: Vec<HashMap<Option<V>, Vec<u32>>>) -> HashMap<Option<V>, Vec<u32>> {
     let mut map = HashMap::new();
     for mapc in maps.into_iter() {
         for (k, mut v2) in mapc.into_iter() {
@@ -105,7 +105,7 @@ pub fn hashmap_primitive_to_idxs_par<V: NativeType + Eq + Hash>(array: &Primitiv
         println!("HM PH1: {} ms", start.elapsed().unwrap().as_millis());
 
         let start = SystemTime::now();
-        let res = hashmaps_merge_vec(maps);
+        let res = hashmaps_merge_idxs(maps);
         println!("HM PH2: {} ms", start.elapsed().unwrap().as_millis());
         res
     } else {
@@ -114,12 +114,15 @@ pub fn hashmap_primitive_to_idxs_par<V: NativeType + Eq + Hash>(array: &Primitiv
 }
 
 // PrimitiveArray to Single index (for merge)
+pub fn hashmaps_merge_idx<V: NativeType + Eq + Hash>(maps: Vec<HashMap<Option<V>, u32>>) -> HashMap<Option<V>, u32> {
+    maps.into_iter().flat_map(|m| m.into_iter()).collect::<HashMap<Option<V>, u32>>()
+}
 
 pub fn hashmap_primitive_to_idx<V: NativeType + Eq + Hash>(array: &PrimitiveArray<V>) -> HashMap<Option<V>, u32> {
     array.into_iter().enumerate().map(|(i, a)| (a.cloned(), i as u32)).collect::<HashMap<Option<V>, u32>>()
 }
 
-pub fn hashmap_primitive_to_idx_par<V: NativeType + Eq + Hash>(array: &PrimitiveArray<V>) -> Vec<HashMap<Option<V>, u32>> {
+pub fn hashmap_primitive_to_idx_par<V: NativeType + Eq + Hash>(array: &PrimitiveArray<V>) -> HashMap<Option<V>, u32> {
     let size = 10_000;
     let workers: usize = 24; //thread::available_parallelism().unwrap().get();
     if array.len() > size {
@@ -131,8 +134,8 @@ pub fn hashmap_primitive_to_idx_par<V: NativeType + Eq + Hash>(array: &Primitive
                 hashmap_primitive_to_idx(&array.slice(i * size, min(size, array.len() - i * size)))
             })
             .collect::<Vec<HashMap<Option<V>, u32>>>();
-        maps
+        hashmaps_merge_idx(maps)
     } else {
-        vec![hashmap_primitive_to_idx(array)]
+        hashmap_primitive_to_idx(array)
     }
 }
